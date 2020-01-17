@@ -5,13 +5,6 @@ A simple github action to deploy a CloudFormation file.
 * Deploy existing or new stacks
 * Read outputs back into future steps
 
-## Contents
-
-* [Usage](#usage)
-* [Accessing stack outputs](#accessing-stack-outputs)
-* [Development](#development)
-* Credits
-
 ## Usage
 
 Read [actions.yml](actions.yml) for a full parameter listing.
