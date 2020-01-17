@@ -49,12 +49,45 @@ Example:
         with:
           stackName: myapp
           templateFile: myapp.cfn.yml
-          parameters: "DbUser=myapp DbPass=${{secrets.DbPass}}"
-      - run: echo 'The hostname is ${{ steps.cfn-deploy.outputs.cf_output_Hostname }}'
-
+      - run: echo The hostname is ${{ steps.cfn-deploy.outputs.cf_output_Hostname }}
 ```
 
 Note: you MUST give the source step an `id` property for outputs to be accessible.
+
+## Examples
+
+### Add Parameters
+
+You can add parameters in two ways: directly and via a file.
+
+```yaml
+      - uses: alexjurkiewicz/cfn-deploy@v2.0.0
+        id: cfn-deploy
+        with:
+          stackName: myapp
+          templateFile: myapp.cfn.yml
+          parameters: DbUser=myapp_user DbPass=${{secrets.DbPass}}
+          parameterFile: params.txt
+```
+
+Parameter file format:
+
+```ini
+DbHostname=db.myapp.com
+DbDescription=Note: Spaces are allowed in the parameter file
+```
+
+### Capabilities & No Execute Changeset
+
+```yaml
+      - uses: alexjurkiewicz/cfn-deploy@v2.0.0
+        id: cfn-deploy
+        with:
+          stackName: myapp
+          templateFile: myapp.cfn.yml
+          capabilities: CAPABILITY_IAM # or CAPABILITY_NAMED_IAM
+          noExecuteChangeset: true
+```
 
 ## Development
 
