@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Test stack
+Parameters:
+  Name:
+    Type: String
+    Default: Test Security Group Name
+  Description:
+    Type: String
+    Default: Test Security Group Description
+Resources:
+  SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName:
+        Ref: Name
+      GroupDescription:
+        Ref: Description
+      Tags:
+        - Key: Name
+          Value:
+            Ref: Name
+Outputs:
+  SecurityGroup:
+    Value:
+      Ref: SG
+  SecurityGroupId:
+    Value:
+      Fn::GetAtt:
+        - SG
+        - GroupId

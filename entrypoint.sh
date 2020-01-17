@@ -6,107 +6,61 @@ set -o errexit  # same as -e
 set -o errtrace
 # Do not allow use of undefined vars. Use ${VAR:-} to use an undefined VAR
 set -o nounset
-# Catch if the pipe fucntion fails
+# Catch if the pipe function fails
 set -o pipefail
-set -x
 
-AWS_PROFILE="default"
-
-#Check AWS credetials are defined in Gitlab Secrets
-if [[ -z "$AWS_ACCESS_KEY_ID" ]];then
-    echo "AWS_ACCESS_KEY_ID is not SET!"; exit 1
-fi
-
-if [[ -z "$AWS_SECRET_ACCESS_KEY" ]];then
-    echo "AWS_SECRET_ACCESS_KEY is not SET!"; exit 2
-fi
-
-if [[ -z "$AWS_REGION" ]];then
-echo "AWS_REGION is not SET!"; exit 3
-fi
-
-aws configure --profile ${AWS_PROFILE} set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-aws configure --profile ${AWS_PROFILE} set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
-aws configure --profile ${AWS_PROFILE} set region ${AWS_REGION}
-
-
-cfn-deploy(){
-   #Paramters
-   # region       - the AWS region
-   # stack-name   - the stack name
-   # template     - the template file
-   # parameters   - the paramters file
-   # capablities  - capablities for IAM
-   
-    region=$1
-    stack=$2
-    template=$3
-    parameters=$4
-    capablities=$5
-
-    ARG_CMD=" "
-    if [[ ! -z $template ]];then
-        ARG_CMD="${ARG_CMD}--template-body file://${template} "
-    fi
-    if [[ ! -z $parameters ]];then
-        ARG_CMD="${ARG_CMD}--parameters file://${parameters} "
-    fi
-    if [[ ! -z $capablities ]];then
-        ARG_CMD="${ARG_CMD}--capabilities ${capablities} "
-    fi
-
-    ARG_STRING=$ARG_CMD
-
-    shopt -s failglob
-    set -eu -o pipefail
-
-    echo -e "\nVERIFYING IF CFN STACK EXISTS ...!"
-
-    if ! aws cloudformation describe-stacks --region $1 --stack-name $2 ; then
-
-    echo -e "\nSTACK DOES NOT EXISTS, RUNNING CREATE"
-    aws cloudformation create-stack \
-        --region $1 \
-        --stack-name $2 \
-        $ARG_STRING
-
-    echo "\nSLEEP STILL STACK CREATES zzz ..."
-    aws cloudformation wait stack-create-complete \
-        --region $1 \
-        --stack-name $2 \
-
-    else
-
-    echo -e "\n STACK IS AVAILABLE, TRYING TO UPDATE !!"
-
-    set +e
-    stack_output=$( aws cloudformation update-stack \
-        --region $1 \
-        --stack-name $2 \
-        $ARG_STRING  2>&1)
-    exit_status=$?
-    set -e
-
-    echo "$stack_output"
-
-    if [ $exit_status -ne 0 ] ; then
-
-        if [[ $stack_output == *"ValidationError"* && $stack_output == *"No updates"* ]] ; then
-            echo -e "\nNO OPERATIONS PERFORMED" && exit 0
-        else
-            exit $exit_status
-        fi
-
-    fi
-
-    echo "STACK UPDATE CHECK ..."
-    aws cloudformation wait stack-update-complete \
-        --region $1 \
-        --stack-name $2 \
-
-    fi
-
-    echo -e "\nSUCCESSFULLY UPDATED - $2"
+debug() {
+    echo "::debug ::$*"
 }
 
-cfn-deploy $AWS_REGION $STACK_NAME $TEMPLATE_FILE $PARAMETERS_FILE $CAPABLITIES
+# Build the commandline
+deploy_cmd=("aws"
+    "cloudformation" "deploy"
+    "--no-fail-on-empty-changeset"
+    "--stack-name" "$INPUT_STACKNAME"
+    "--template-file" "$INPUT_TEMPLATEFILE"
+    )
+params=()
+if [[ -n ${INPUT_PARAMETERS:-} ]]; then
+    read -r -a params <<< "$INPUT_PARAMETERS"
+fi
+if [[ -n ${INPUT_PARAMETERFILE:-} ]] ; then
+    if ! [[ -f $INPUT_PARAMETERFILE ]] ; then
+        echo "::error file=$INPUT_PARAMETERFILE::File not found."
+        exit 1
+    fi
+    line_no=0 # purely for error reporting
+    while read -r line ; do
+        line_no=$((line_no+1))
+        if ! [[ $line = *=* ]] ; then
+            echo "::error file=$INPUT_PARAMETERFILE,line=$line_no,col=1::Line not in key=val format."
+            exit 1
+        fi
+        params+=("$line")
+    done < "$INPUT_PARAMETERFILE"
+fi
+if [[ ${#params[@]} -gt 0 ]] ; then
+    deploy_cmd+=("--parameter-overrides" "${params[@]}")
+fi
+if [[ -n ${INPUT_CAPABILITIES:-} ]] ; then
+    deploy_cmd+=("--capabilities" "$INPUT_CAPABILITIES")
+fi
+if [[ -n ${INPUT_NOEXECUTECHANGESET} ]] ; then
+    deploy_cmd+=("--no-execute-changeset")
+fi
+
+debug "Running: ${deploy_cmd[*]}"
+"${deploy_cmd[@]}"
+
+# Add outputs
+# The stack description has no "Outputs" key if there are no outputs, hence this
+# defensive construction.
+outputs=$(aws cloudformation describe-stacks --stack-name "$INPUT_STACKNAME" | jq -cr '.Stacks[0].Outputs')
+if [[ $outputs != null ]] ; then
+    echo "$outputs" | jq -c '.[]' | while read -r line; do
+        key=$(echo "$line" | jq -r '.OutputKey')
+        value=$(echo "$line" | jq -r '.OutputValue')
+        debug "Set output cf_output_$key=$value"
+        echo "::set-output name=cf_output_$key::$value"
+    done
+fi
