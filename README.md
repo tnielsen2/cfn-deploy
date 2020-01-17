@@ -7,7 +7,7 @@ A simple github action to deploy a CloudFormation file.
 
 ## Usage
 
-Read [actions.yml](actions.yml) for a full parameter listing.
+Read [action.yml](action.yml) for a full parameter listing.
 
 Supply AWS credentials with the [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials) action.
 
