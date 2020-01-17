@@ -14,18 +14,18 @@ inputs:
     description: Path to your CloudFormation template file.
     required: true
   parameters:
-    description: Stack parameters as string. Format is `key1=val1 key2=val2`. If your parameter value has whitespace in it, you'll have to use `parameterFile` instead.
+    description: Stack parameters. Format is `key1=val1 key2=val2`. If your parameter values have whitespace, use `parameterFile`.
     required: false
     default: ""
   parameterFile:
-    description: Stack parameters as file. Format is one `key=val` per line.
+    description: File with stack parameters. Format is one `key=val` per line.
     required: false
     default: ""
   capabilities:
-    description: String defining required CloudFormation capabilities, eg `CAPABILITY_IAM`.
+    description: Required CloudFormation capabilities, eg `CAPABILITY_IAM`.
     required: false
     default: ""
   noExecuteChangeset:
-    description: If defined, a CloudFormation change set will be created but not executed.
+    description: If defined, create a CloudFormation change set but do not execute it.
     required: false
     default: ""
