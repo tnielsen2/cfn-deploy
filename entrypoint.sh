@@ -13,6 +13,11 @@ debug() {
     echo "::debug ::$*"
 }
 
+debug "Environment variables:"
+while read -r -d $'\0' line ; do
+    debug "$line"
+done < /proc/$$/environ
+
 # Build the commandline
 deploy_cmd=("aws"
     "cloudformation" "deploy"
