@@ -13,17 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Load AWS credentials
-      - uses: aws-actions/configure-aws-credentials@v1
+      - name: Load AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      # Deploy CloudFormation stack
-      - uses: alexjurkiewicz/cfn-deploy@v2.0.0
+      - name: Deploy App Stack
+        id: deploy
+        uses: alexjurkiewicz/cfn-deploy@v2.0.1
         with:
           stackName: myapp
           templateFile: myapp.cfn.yml
+          parameters: MinInstances=2 MaxInstances=8 VpcId=${{ secrets.vpc_id }}
+      - name: Print App Hostname
+        run: echo ${{ steps.deploy.outputs.cf_output_AppHostname }}
 ```
 
 ## Inputs
@@ -32,7 +36,7 @@ jobs:
 * `templateFile` **REQUIRED** Path to your CloudFormation template file.
 * `parameters` Stack parameters. Format is `key1=val1 key2=val2`. If your parameter values have whitespace, use `parameterFile`.
 * `parameterFile` File with stack parameters. Format is one `key=val` per line.
-* `capabilities` Required CloudFormation capabilities, eg `CAPABILITY_IAM`.
+* `capabilities` Required CloudFormation capabilities, eg `CAPABILITY_IAM` or `CAPABILITY_NAMED_IAM`.
 * `noExecuteChangeset` If defined, create a CloudFormation change set but do not execute it.
 
 ## Accessing stack outputs
@@ -66,7 +70,7 @@ You can add parameters in two ways: directly and via a file.
         with:
           stackName: myapp
           templateFile: myapp.cfn.yml
-          parameters: DbUser=myapp_user DbPass=${{secrets.DbPass}}
+          parameters: DbUser=myapp DbPass=${{secrets.DbPass}}
           parameterFile: params.txt
 ```
 
@@ -74,7 +78,7 @@ Parameter file format:
 
 ```ini
 DbHostname=db.myapp.com
-DbDescription=Note: Spaces are allowed in the parameter file
+DbDescription=Spaces (and other special characters!) are allowed in the parameter file
 ```
 
 ### Capabilities & No Execute Changeset
@@ -88,6 +92,8 @@ DbDescription=Note: Spaces are allowed in the parameter file
           capabilities: CAPABILITY_IAM # or CAPABILITY_NAMED_IAM
           noExecuteChangeset: true
 ```
+
+If `noExecuteChangeset` is `true`, you can still read stack outputs, but they will be the current outputs (eg before the change set is executed).
 
 ## Development
 
